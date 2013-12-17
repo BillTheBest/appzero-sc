@@ -1,37 +1,8 @@
 ﻿# Copyright (c) 2013 AppZero Software Corporation.  All Rights Reserved.
 #
-# Experimental script to automate sql2005 migration
+# Template PSH script to automate sql2005 migration
 
-# Determine if a service account is one of the built-in
-#  accounts, so we know if we need to set a password
-Function Is-BuiltInAccount([string]$user)
-{
-    Write-Host "Checking if account [$user] is a built-in account"
-    $builtin = $false
-    switch -exact -casesensitive ($user)
-    {
-        "NT AUTHORITY\LocalSystem" { $builtin = $true }
-        "NT AUTHORITY\NetworkService" { $builtin = $true }
-        Default { $builtin =  $false }
-    }
-    Write-Host "Account [$user] is built-in:  $builtin"
-    return $builtin;
-}
-
-# Get the Service Account name used by a specified
-#  service in the VAA
-Function Get-ServiceAccount([string]$vaa,[string]$service)
-{
-    Write-Host "Getting Service Account from Service $service in VAA $vaa"
-    $info = ( &$appzsc $vaa list |
-        Select-String -Pattern $service -SimpleMatch -Context 0,5 -CaseSensitive )
-    
-    $account_line = $info.Context.PostContext[3]
-    $account = $account_line.substring( 10 ).trim()  # strip the "Username: " prefix
-    Write-Host "Service Account is $account"
-    return $account
-}
-
+# prebuilt paths to the executables for convenience
 $echoargs = $Env:AppZero_Path + "echoargs.exe"
 $appzpace = $Env:AppZero_Path + "appzpace.exe"
 $appzcreate = $Env:AppZero_Path + "appzcreate.exe"
@@ -41,24 +12,38 @@ $appzdock = $Env:AppZero_Path + "appzdock.exe"
 $appzstart = $Env:AppZero_Path + "appzstart.exe"
 $appzsc = $Env:AppZero_Path + "appzsc.exe"
 $appzundock = $Env:AppZero_Path + "appzundock.exe"
+$appzuser = $Env:AppZero_Path + "appzuser.exe"
 
+# retrieve the hostname
+# todo:  hardcoded here, take it as a script input
 $srchost = "sqlsource"
 
+# prompt user for Local-Admin credentials to the source
+# todo:  local admin may have been renamed, take it as optional script input
 $creds = Get-Credential "Administrator"
 $password = $creds.GetNetworkCredential().password
 
+# generate appliance name
+# todo: take it as parameter
 $appliancepath = "c:\appliances\"
 $key = Get-Date -Format hms
-$vaa = $appliancepath + "sql-" + $key
+$vaa = $appliancepath + "Untitled-" + $key
 
-& $appzpace /L sqlsource Administrator $password |
+# the appzpace line isn't actually doing anything for now
+# todo:  substitute appzpace /M /T to create the VAA
+& $appzpace /L $srchost Administrator $password |
     tee -Variable output | Out-Host
-
 & $appzcreate $vaa /E |
     tee -Variable output | Out-Host
 
+
+# set tether properties
 & $appzpedit $vaa CPROP_USE_TETHER Y $srchost Administrator $password |
     tee -Variable output | Out-Host    
+
+
+#--  Select Individual Services As Necessary
+
 
 # set up a list of services we select into the vaa
 $startlist = @()
@@ -82,18 +67,17 @@ ForEach ( $source_service in $source_services )
         # add the service to the vaa
         & $appzsvc $vaa add $svcname
         
-        # check if we need to set a password
+        # check if it's a builtin account, or we need to set a password
         $service_account = Get-ServiceAccount -vaa $vaa -service $svcname
         $builtin = Is-BuiltInAccount( $service_account )
         if( $builtin -eq $false )
-        {
+        {   
             # prompt user for password
             $service_creds = Get-Credential( $service_account )
             # set the password in the vaa
             $service_password = $service_creds.GetNetworkCredential().password
-            & $appzsc $vaa config /P $service_password |
+            & $appzsc $vaa config $svcname /U $service_account /P $service_password |
                 tee -Variable output | Out-Host
-            
         }
         
         # add the service to the start list
@@ -103,7 +87,7 @@ ForEach ( $source_service in $source_services )
 }
     
 
-    
+#-- Dock and Start    
  
 Write-Host "Docking vaa"
 & $appzdock $vaa |
@@ -119,7 +103,57 @@ Write-Host "Undocking vaa"
     tee -Variable output | Out-Host
     
 
+#--  Supporting Functions
 
+
+# Determine if a service account is one of the built-in
+#  accounts, so we know if we need to set a password
+Function Is-BuiltInAccount([string]$user)
+{
+    Write-Host "Checking if account [$user] is a built-in account"
+    $builtin = $false
+    switch -exact -casesensitive ($user)
+    {
+        "NT AUTHORITY\LocalSystem" { $builtin = $true }
+        "NT AUTHORITY\NetworkService" { $builtin = $true }
+        "LocalSystem" { $builtin = $true }
+        "NetworkService" { $builtin = $true }
+        Default { $builtin =  $false }
+    }
+    Write-Host "Account [$user] is built-in:  $builtin"
+    return $builtin
+}
+
+# Get the Service Account name used by a specified
+#  service in the VAA
+Function Get-ServiceAccount([string]$vaa,[string]$service)
+{
+    Write-Host "Getting Service Account from Service $service in VAA $vaa"
+    $pattern = "Service $service"
+    $info = ( &$appzsc $vaa list |
+        Select-String -Pattern $pattern -SimpleMatch -Context 0,5 -CaseSensitive )
+    
+    $account_line = $info.Context.PostContext[3]
+    $account = $account_line.Substring( 10 ).trim()  # strip the "Username: " prefix
+    Write-Host "Service Account is $account"
+    
+    # appzsc seems to prefix local account names with ".\", but
+    #  the Windows credentials popup box doesn't like that
+    if( $account.StartsWith(".\") -eq $true )
+    {
+        $account = $account.Substring( 2 )
+    }
+    
+    return $account
+}
+
+# Extract a local user account from the source server, and 
+Function Export-UserAccount([string]$source_hostname, [string]$password, [string]$vaa, [string]$username)
+{
+    # todo:  Administrator may have been renamed, take from parameter and use here
+    & $appzuser /L $source_hostname Administrator $password |
+        Select-String -Pattern $username |
+}
 
 
 
