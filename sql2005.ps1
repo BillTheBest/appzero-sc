@@ -72,6 +72,9 @@ ForEach ( $source_service in $source_services )
         $builtin = Is-BuiltInAccount( $service_account )
         if( $builtin -eq $false )
         {   
+            # move the local user account from the source
+            Export-UserAccount -srchost $srchost -password $password -vaa $vaa -username $service_account
+            
             # prompt user for password
             $service_creds = Get-Credential( $service_account )
             # set the password in the vaa
@@ -147,12 +150,16 @@ Function Get-ServiceAccount([string]$vaa,[string]$service)
     return $account
 }
 
-# Extract a local user account from the source server, and 
-Function Export-UserAccount([string]$source_hostname, [string]$password, [string]$vaa, [string]$username)
+# Extract a local user account from the source server, into the vaa
+Function Export-UserAccount([string]$srchost, [string]$password, [string]$vaa, [string]$username)
 {
+    # the command output is a series of "SID: <sid>  Name: <name>" lines,
+    #  with two spaces separating the name-value pairs, and one space between name and value
     # todo:  Administrator may have been renamed, take from parameter and use here
-    & $appzuser /L $source_hostname Administrator $password |
-        Select-String -Pattern $username |
+    $sid = @((& $appzuser /L $srchost Administrator $password |
+        Select-String -Pattern $username ) -split "  " -split " " )[1]
+        
+    & $appzuser /X $srchost Administrator $password $sid $vaa
 }
 
 
