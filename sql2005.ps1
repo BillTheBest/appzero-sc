@@ -14,6 +14,62 @@ $appzsc = $Env:AppZero_Path + "appzsc.exe"
 $appzundock = $Env:AppZero_Path + "appzundock.exe"
 $appzuser = $Env:AppZero_Path + "appzuser.exe"
 
+#--  Supporting Functions
+
+
+# Determine if a service account is one of the built-in
+#  accounts, so we know if we need to set a password
+Function Is-BuiltInAccount([string]$user)
+{
+    Write-Host "Checking if account [$user] is a built-in account"
+    $builtin = $false
+    switch -exact -casesensitive ($user)
+    {
+        "NT AUTHORITY\LocalSystem" { $builtin = $true }
+        "NT AUTHORITY\NetworkService" { $builtin = $true }
+        "LocalSystem" { $builtin = $true }
+        "NetworkService" { $builtin = $true }
+        Default { $builtin =  $false }
+    }
+    Write-Host "Account [$user] is built-in:  $builtin"
+    return $builtin
+}
+
+# Get the Service Account name used by a specified
+#  service in the VAA
+Function Get-ServiceAccount([string]$vaa,[string]$service)
+{
+    Write-Host "Getting Service Account from Service $service in VAA $vaa"
+    $pattern = "Service $service"
+    $info = ( &$appzsc $vaa list |
+        Select-String -Pattern $pattern -SimpleMatch -Context 0,5 -CaseSensitive )
+    
+    $account_line = $info.Context.PostContext[3]
+    $account = $account_line.Substring( 10 ).trim()  # strip the "Username: " prefix
+    Write-Host "Service Account is $account"
+    
+    # appzsc seems to prefix local account names with ".\", but
+    #  the Windows credentials popup box doesn't like that
+    if( $account.StartsWith(".\") -eq $true )
+    {
+        $account = $account.Substring( 2 )
+    }
+    
+    return $account
+}
+
+# Extract a local user account from the source server, into the vaa
+Function Export-UserAccount([string]$srchost, [string]$password, [string]$vaa, [string]$username)
+{
+    # the command output is a series of "SID: <sid>  Name: <name>" lines,
+    #  with two spaces separating the name-value pairs, and one space between name and value
+    # todo:  Administrator may have been renamed, take from parameter and use here
+    $sid = @((& $appzuser /L $srchost Administrator $password |
+        Select-String -Pattern $username ) -split "  " -split " " )[1]
+        
+    & $appzuser /X $srchost Administrator $password $sid $vaa
+}
+
 # retrieve the hostname
 # todo:  hardcoded here, take it as a script input
 $srchost = "sqlsource"
@@ -106,61 +162,7 @@ Write-Host "Undocking vaa"
     tee -Variable output | Out-Host
     
 
-#--  Supporting Functions
 
-
-# Determine if a service account is one of the built-in
-#  accounts, so we know if we need to set a password
-Function Is-BuiltInAccount([string]$user)
-{
-    Write-Host "Checking if account [$user] is a built-in account"
-    $builtin = $false
-    switch -exact -casesensitive ($user)
-    {
-        "NT AUTHORITY\LocalSystem" { $builtin = $true }
-        "NT AUTHORITY\NetworkService" { $builtin = $true }
-        "LocalSystem" { $builtin = $true }
-        "NetworkService" { $builtin = $true }
-        Default { $builtin =  $false }
-    }
-    Write-Host "Account [$user] is built-in:  $builtin"
-    return $builtin
-}
-
-# Get the Service Account name used by a specified
-#  service in the VAA
-Function Get-ServiceAccount([string]$vaa,[string]$service)
-{
-    Write-Host "Getting Service Account from Service $service in VAA $vaa"
-    $pattern = "Service $service"
-    $info = ( &$appzsc $vaa list |
-        Select-String -Pattern $pattern -SimpleMatch -Context 0,5 -CaseSensitive )
-    
-    $account_line = $info.Context.PostContext[3]
-    $account = $account_line.Substring( 10 ).trim()  # strip the "Username: " prefix
-    Write-Host "Service Account is $account"
-    
-    # appzsc seems to prefix local account names with ".\", but
-    #  the Windows credentials popup box doesn't like that
-    if( $account.StartsWith(".\") -eq $true )
-    {
-        $account = $account.Substring( 2 )
-    }
-    
-    return $account
-}
-
-# Extract a local user account from the source server, into the vaa
-Function Export-UserAccount([string]$srchost, [string]$password, [string]$vaa, [string]$username)
-{
-    # the command output is a series of "SID: <sid>  Name: <name>" lines,
-    #  with two spaces separating the name-value pairs, and one space between name and value
-    # todo:  Administrator may have been renamed, take from parameter and use here
-    $sid = @((& $appzuser /L $srchost Administrator $password |
-        Select-String -Pattern $username ) -split "  " -split " " )[1]
-        
-    & $appzuser /X $srchost Administrator $password $sid $vaa
-}
 
 
 
