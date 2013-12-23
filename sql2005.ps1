@@ -2,6 +2,37 @@
 #
 # Template PSH script to automate sql2005 migration
 
+<#
+    .SYNOPSIS
+        Automated harness to discover, select, and extract applications
+        from a source server into an AppZero VAA
+        
+    .DESCRIPTION
+        This script implements an automated sequence of AppZero CLI
+        commands to discover, select and extract applications into an
+        AppZero Virtual Application Appliance (VAA).
+        
+    .PARAMETER srchost
+        The hostname or IP address of the source machine
+    .PARAMETER password
+        The Local Administrator password of the source machine.  If
+        this parameter is not passed the user is prompted to provide
+        the password
+    .PARAMETER administrator
+        Provides an alternate username for the Local Administrator
+        account of the source machine
+    
+#>
+
+
+
+Param(
+    [Parameter(Mandatory=$true)]
+    [string]$srchost,
+    [string]$password,
+    [string]$administrator
+) # end param
+
 # prebuilt paths to the executables for convenience
 $echoargs = $Env:AppZero_Path + "echoargs.exe"
 $appzpace = $Env:AppZero_Path + "appzpace.exe"
@@ -69,10 +100,6 @@ Function Export-UserAccount([string]$srchost, [string]$password, [string]$vaa, [
         
     & $appzuser /X $srchost Administrator $password $sid $vaa
 }
-
-# retrieve the hostname
-# todo:  hardcoded here, take it as a script input
-$srchost = "sqlsource"
 
 # prompt user for Local-Admin credentials to the source
 # todo:  local admin may have been renamed, take it as optional script input
