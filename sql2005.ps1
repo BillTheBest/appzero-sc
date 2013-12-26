@@ -19,8 +19,11 @@
         this parameter is not passed the user is prompted to provide
         the password
     .PARAMETER administrator
-        Provides an alternate username for the Local Administrator
-        account of the source machine
+        Specifies an alternate username for the Local Administrator
+        account of the source machine.  The default is "Administrator"
+    .PARAMETER services
+        The path to a file containing names or patterns of Windows Services
+        to be added individually to the VAA.
     
 #>
 
@@ -30,7 +33,9 @@ Param(
     [Parameter(Mandatory=$true)]
     [string]$srchost,
     [string]$password,
-    [string]$administrator
+    [string]$administrator = "Administrator",
+    [string]$programs,
+    [string]$services
 ) # end param
 
 # prebuilt paths to the executables for convenience
@@ -95,29 +100,29 @@ Function Export-UserAccount([string]$srchost, [string]$password, [string]$vaa, [
     # the command output is a series of "SID: <sid>  Name: <name>" lines,
     #  with two spaces separating the name-value pairs, and one space between name and value
     # todo:  Administrator may have been renamed, take from parameter and use here
-    $sid = @((& $appzuser /L $srchost Administrator $password |
+    $sid = @((& $appzuser /L $srchost $administrator $password |
         Select-String -Pattern $username ) -split "  " -split " " )[1]
         
-    & $appzuser /X $srchost Administrator $password $sid $vaa
+    & $appzuser /X $srchost $administrator $password $sid $vaa
 }
 
 # prompt user for Local-Admin credentials to the source
-# todo:  local admin may have been renamed, take it as optional script input
-$creds = Get-Credential "Administrator"
+$creds = Get-Credential $administrator
 $password = $creds.GetNetworkCredential().password
 
 # generate appliance name
-# todo: take it as parameter
+# 
 $appliancepath = "c:\appliances\"
 $key = Get-Date -Format hms
 $vaa = $appliancepath + "Untitled-" + $key
 
 # the appzpace line isn't actually doing anything for now
 # todo:  substitute appzpace /M /T to create the VAA
-& $appzpace /L $srchost Administrator $password |
+& $appzpace /L $srchost $administrator $password |
     tee -Variable output | Out-Host
 & $appzcreate $vaa /E |
     tee -Variable output | Out-Host
+    
 
 
 # set tether properties
