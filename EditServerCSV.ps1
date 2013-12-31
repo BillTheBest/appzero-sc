@@ -17,18 +17,17 @@ $entry = New-Object PSObject
 $entry | Add-Member -MemberType Noteproperty -Name "Hostname" -Value $hostname
 $entry | Add-Member -MemberType Noteproperty -Name "Password" -Value $password
 
+$entries = @()
+
 if( Test-Path $filename )
 {
     Import-Csv $filename | Write-Host
     $entries = @(Import-Csv $filename)
-    Write-Host $entries
+    #Write-Host $entries
 }
-else
-{
-    $entries = @()
-    Write-Host $entries
-}
-Write-Host $entry
+
+#Write-Host $entryrigen
 $entries += $entry
+#Write-Host $entries
     
-Export-Csv -Path $filename -InputObject $entries -NoTypeInformation
+$entries | Export-Csv -Path $filename -NoTypeInformation
