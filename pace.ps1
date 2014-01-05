@@ -11,10 +11,6 @@ Param(
 
 $appzpace = $Env:AppZero_Path + "appzpace.exe"
 
-
-
-#--  Supporting Functions
-
 # Get installed program lists using appzpace
 Function Get-InstalledPrograms([string]$credentialsFile)
 {
@@ -37,6 +33,7 @@ Function Select-InstalledPrograms([string]$listFile, [string]$regex)
     
     $programs | Export-Csv -Path $listFile -NoTypeInformation
 }
+
 
 
 Select-InstalledPrograms -listFile $filename -regex $pattern
