@@ -50,8 +50,6 @@ $appzsc = $Env:AppZero_Path + "appzsc.exe"
 $appzundock = $Env:AppZero_Path + "appzundock.exe"
 $appzuser = $Env:AppZero_Path + "appzuser.exe"
 
-#--  Supporting Functions
-
 
 # Determine if a service account is one of the built-in
 #  accounts, so we know if we need to set a password
