@@ -36,6 +36,6 @@ Function Select-InstalledPrograms([string]$listFile, [string]$regex)
 
 
 
-Select-InstalledPrograms -listFile $filename -regex $pattern
+#Select-InstalledPrograms -listFile $filename -regex $pattern
 
 
