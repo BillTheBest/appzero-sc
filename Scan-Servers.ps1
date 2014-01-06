@@ -17,8 +17,12 @@ Function Get-InstalledPrograms([string]$credentialsFile)
         tee -Variable output | Out-Host
 }
 
-Get-InstalledPrograms -credentialsFile $filename
-
+# appzpace /L /M wants to run in the install dir
+#  resolve the filepath from cwd first
+$fullpath = Resolve-Path $filename
+Push-Location $Env:AppZero_Path
+Get-InstalledPrograms -credentialsFile $fullpath
+Pop-Location
 
 
 
