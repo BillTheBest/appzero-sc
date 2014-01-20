@@ -11,7 +11,6 @@ Please review the attached Worksheet.
 Thank You.
 "@
 
-
 $SMTPServer = "smtp.gmail.com"
 $SMTPClient = New-Object Net.Mail.SmtpClient($SmtpServer, 587)
 $SMTPClient.EnableSsl = $true
@@ -23,6 +22,11 @@ $emailMessage.From = $EmailFrom
 $emailMessage.To.Add($EmailTo)
 $emailMessage.Subject = $Subject
 $emailMessage.Body = $Body
-$emailMessage.Attachments.Add("./L-classify.csv")
+
+$attachmentPath = Resolve-Path -Path ".\L-classify.csv"
+$attachment = New-Object System.Net.Mail.Attachment( $attachmentPath )
+$emailMessage.Attachments.Add($attachment)
 
 $SMTPClient.send($emailMessage)
+$emailMessage.dispose()
+
