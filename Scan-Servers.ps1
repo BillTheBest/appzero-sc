@@ -5,6 +5,8 @@
 
 Param(
     [Parameter(Mandatory=$true)]
+    [string] $root,
+    [Parameter(Mandatory=$true)]
     [string] $filename
 )
 
