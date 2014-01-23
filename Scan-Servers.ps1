@@ -15,13 +15,14 @@ $appzpace = $Env:AppZero_Path + "appzpace.exe"
 # Get installed program lists using appzpace
 Function Get-InstalledPrograms([string]$credentialsFile)
 {
-    & $appzpace /M /L $credentialsFile |
-        tee -Variable output | Out-Host
+    & $appzpace /M /L $credentialsFile
 }
 
 # appzpace /L /M wants to run in the install dir
 #  resolve the filepath from cwd first
+Push-Location $root
 $fullpath = Resolve-Path $filename
+Pop-Location
 Push-Location $Env:AppZero_Path
 Get-InstalledPrograms -credentialsFile $fullpath
 Pop-Location
