@@ -1,6 +1,52 @@
 ﻿# Copyright (c) 2013 AppZero Software Corporation.  All Rights Reserved.
 #
 
+Param(
+    [Parameter(Mandatory=$true)]
+    [string]$rootPath,
+    [Parameter(Mandatory=$true)]
+    [string]$stagingHost
+)
+
+$stagingPath = $rootPath
+if([System.IO.Path]::IsPathRooted($stagingPath) -ne $True) {
+    $stagingPath = Join-Path -Path (pwd) -ChildPath $stagingPath
+    $stagingPath = Resolve-Path -Path $stagingPath
+}
+"PACE staging path set to $stagingPath"
+"PACE staging host is $stagingHost"
+
+Function Get-PaceLocation([string]$source)
+{
+    $loc = "$stagingPath\servers\$stagingHost\PACE"
+    if( [string]::IsNullOrEmpty($source) -ne $true ) {
+        $loc = Join-Path -Path $loc -ChildPath $source
+    }
+    return $loc
+}
+
+Function Get-PaceStagingHostLocation()
+{
+    return "$stagingPath\servers\$stagingHost"
+}
+
+Function Get-PaceCredentialsFile([string]$filename = "servers.csv")
+{
+    return "$stagingPath\servers\$stagingHost\$filename"
+}
+
+Function Out-PaceLog([string]$logText)
+{
+    Process {
+        $parent = Get-PaceStagingHostLocation
+        $log = Join-Path -Path $parent -ChildPath ".\$stagingHost.log"
+        $timestamp = Get-Date
+        "`r`n------------  $timestamp  ------------`r`n" | Out-File $log -Append
+        $_ | Out-File $log -Append
+    }
+}
+
+
 $appzcmd = $Env:AppZero_Path + "appzcmd.exe"
 $appzcompress = $Env:AppZero_Path + "appzcompress.exe"
 $appzcotf = $Env:AppZero_Path + "appzcotf.exe"
@@ -39,18 +85,25 @@ $appzupgrade = $Env:AppZero_Path + "appzupgrade.exe"
 $appzuser = $Env:AppZero_Path + "appzuser.exe"
 $appzvdrive = $Env:AppZero_Path + "appzvdrive.exe"
 
-Function Get-SourceInstalledPrograms
+Function Get-PaceSourceInstalledPrograms
 (
-    [Parameter(Mandatory=$true)]
-    [ValidateScript({[System.IO.Path]::IsPathRooted($_)})]
     [string]$credentialsFile
 )
 {
-    $parent = Split-Path -Parent $credentialsFile
-    $log = Join-Path -Path $parent -ChildPath "..\Get-SourceInstalledPrograms.log"
+    if( [string]::IsNullOrEmpty($credentialsFile) ) {
+        $credentialsFile = Get-PaceCredentialsFile
+    } elseif( [System.IO.Path]::IsPathRooted($credentialsFile) -ne $true) {
+        $credentialsFile = Join-Path -Path (Get-StagingHostLocation) -ChildPath $credentialsFile
+        $credentialsFile = Resolve-Path -Path $credentialsFile
+    }
     
+    if((Test-Path -Path $credentialsFile -IsValid -PathType Leaf) -ne $true)
+    {
+        throw "$credentialsFile is not a valid path"
+    }
+
     & $appzpace /M /L $credentialsFile |
-        Out-File $log -Append
+        Out-PaceLog
     
     $sources = Get-ChildItem -Path $parent\PACE -Name
     return $sources
@@ -60,15 +113,21 @@ Function Get-SourceInstalledPrograms
 Function Get-SourceMappFiles
 (
     [Parameter(Mandatory=$true)]
-    [ValidateScript({[System.IO.Path]::IsPathRooted($_)})]
     [string]$credentialsFile
 )
 {
-    $parent = Split-Path -Parent $credentialsFile
-    $log = Join-Path -Path $parent -ChildPath "..\Get-SourceMappFiles.log"
-    
+    if([System.IO.Path]::IsPathRooted($credentialsFile) -ne $true)
+    {
+        $credentialsFile = Join-Path -Path (pwd) -ChildPath $credentialsFile
+        $credentialsFile = Resolve-Path -Path $credentialsFile
+    }
+    if((Test-Path -Path $credentialsFile -IsValid -PathType Leaf) -ne $true)
+    {
+        throw "$credentialsFile is not a valid path"
+    }
+
     & $appzpace /M /C $credentialsFile |
-        Out-File $log -Append
+        Out-PaceLog
     
     $sources = Get-ChildItem -Path $parent\PACE -Name
     return $sources
@@ -77,15 +136,21 @@ Function Get-SourceMappFiles
 Function New-VAA
 (
     [Parameter(Mandatory=$true)]
-    [ValidateScript({[System.IO.Path]::IsPathRooted($_)})]
     [string]$credentialsFile
 )
 {
-    $parent = Split-Path -Parent $credentialsFile
-    $log = Join-Path -Path $parent -ChildPath "..\New-VAA.log"
-    
+    if([System.IO.Path]::IsPathRooted($credentialsFile) -ne $true)
+    {
+        $credentialsFile = Join-Path -Path (pwd) -ChildPath $credentialsFile
+        $credentialsFile = Resolve-Path -Path $credentialsFile
+    }
+    if((Test-Path -Path $credentialsFile -IsValid -PathType Leaf) -ne $true)
+    {
+        throw "$credentialsFile is not a valid path"
+    }
+
     & $appzpace /M /T $credentialsFile |
-        Out-File $log -Append
+        Out-PaceLog
     
     $sources = Get-ChildItem -Path $parent\VAAs -Name
     return $sources
@@ -101,13 +166,10 @@ Function Delete-Vaa
     [string]$vaapath
 )
 {
-    $parent = Split-Path -Parent $vaapath
-    $log = Join-Path -Path $parent -ChildPath "..\Delete-VAA.log"
-    
     pushd "$Env:AppZero_Path"
     
     & $appzdel $vaapath |
-        Out-File $log -Append
+        Out-PaceLog
         
     popd
 }
@@ -123,13 +185,10 @@ Function Dock-VAA
     [string]$vaapath
 )
 {
-    $parent = Split-Path -Parent $vaapath
-    $log = Join-Path -Path $parent -ChildPath "..\Dock-VAA.log"
-    
     pushd "$Env:AppZero_Path"
     
     & $appzdock $vaapath |
-        Out-File $log -Append
+        Out-PaceLog
         
     popd
     
@@ -143,13 +202,10 @@ Function Undock-VAA
     [string]$vaapath
 )
 {
-    $parent = Split-Path -Parent $vaapath
-    $log = Join-Path -Path $parent -ChildPath "..\Dock-VAA.log"
-    
     pushd "$Env:AppZero_Path"
     
     & $appzundock $vaapath |
-        Out-File $log -Append
+        Out-PaceLog
         
     popd
     
@@ -163,9 +219,6 @@ Function Start-VAA
     [string]$vaapath
 )
 {
-    $parent = Split-Path -Parent $vaapath
-    $log = Join-Path -Path $parent -ChildPath "..\Dock-VAA.log"
-    
     if( (Get-VaaStatus $vaapath) -ne "Docked" )
     {
         # vaa path return value is generated below
@@ -177,11 +230,11 @@ Function Start-VAA
         
     $startlist = Get-VaaServiceNames $vaapath 
     $startlist | %{ & $appzstart $vaapath $_ } |
-        Out-File $log -Append
+        Out-PaceLog
 
     $runlist = Get-VaaExecutablePaths $vaapath 
     $runlist | %{ & $appzrun $vaapath $_ }
-        Out-File $log -Append
+        Out-PaceLog
     
     popd
     
