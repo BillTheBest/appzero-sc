@@ -105,6 +105,7 @@ Function Get-PaceSourceInstalledPrograms
     & $appzpace /M /L $credentialsFile |
         Out-PaceLog
     
+    $parent = Split-Path -Parent $credentialsFile
     $sources = Get-ChildItem -Path $parent\PACE -Name
     return $sources
 }
@@ -112,15 +113,16 @@ Function Get-PaceSourceInstalledPrograms
 # make this a New- function
 Function Get-SourceMappFiles
 (
-    [Parameter(Mandatory=$true)]
     [string]$credentialsFile
 )
 {
-    if([System.IO.Path]::IsPathRooted($credentialsFile) -ne $true)
-    {
-        $credentialsFile = Join-Path -Path (pwd) -ChildPath $credentialsFile
+    if( [string]::IsNullOrEmpty($credentialsFile) ) {
+        $credentialsFile = Get-PaceCredentialsFile
+    } elseif( [System.IO.Path]::IsPathRooted($credentialsFile) -ne $true) {
+        $credentialsFile = Join-Path -Path (Get-StagingHostLocation) -ChildPath $credentialsFile
         $credentialsFile = Resolve-Path -Path $credentialsFile
     }
+    
     if((Test-Path -Path $credentialsFile -IsValid -PathType Leaf) -ne $true)
     {
         throw "$credentialsFile is not a valid path"
@@ -129,21 +131,23 @@ Function Get-SourceMappFiles
     & $appzpace /M /C $credentialsFile |
         Out-PaceLog
     
+    $parent = Split-Path -Parent $credentialsFile
     $sources = Get-ChildItem -Path $parent\PACE -Name
     return $sources
 }
 
 Function New-VAA
 (
-    [Parameter(Mandatory=$true)]
     [string]$credentialsFile
 )
 {
-    if([System.IO.Path]::IsPathRooted($credentialsFile) -ne $true)
-    {
-        $credentialsFile = Join-Path -Path (pwd) -ChildPath $credentialsFile
+    if( [string]::IsNullOrEmpty($credentialsFile) ) {
+        $credentialsFile = Get-PaceCredentialsFile
+    } elseif( [System.IO.Path]::IsPathRooted($credentialsFile) -ne $true) {
+        $credentialsFile = Join-Path -Path (Get-StagingHostLocation) -ChildPath $credentialsFile
         $credentialsFile = Resolve-Path -Path $credentialsFile
     }
+    
     if((Test-Path -Path $credentialsFile -IsValid -PathType Leaf) -ne $true)
     {
         throw "$credentialsFile is not a valid path"
@@ -152,6 +156,7 @@ Function New-VAA
     & $appzpace /M /T $credentialsFile |
         Out-PaceLog
     
+    $parent = Split-Path -Parent $credentialsFile
     $sources = Get-ChildItem -Path $parent\VAAs -Name
     return $sources
 }
@@ -219,6 +224,7 @@ Function Start-VAA
     [string]$vaapath
 )
 {
+    
     if( (Get-VaaStatus $vaapath) -ne "Docked" )
     {
         # vaa path return value is generated below
