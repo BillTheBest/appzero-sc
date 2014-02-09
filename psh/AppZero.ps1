@@ -25,6 +25,15 @@ Function Get-PaceLocation([string]$source)
     return $loc
 }
 
+Function Get-VAALocation([string]$source)
+{
+    $loc = "$stagingPath\servers\$stagingHost\VAAs"
+    if( [string]::IsNullOrEmpty($source) -ne $true ) {
+        $loc = Join-Path -Path $loc -ChildPath $source
+    }
+    return $loc
+}
+
 Function Get-PaceStagingHostLocation()
 {
     return "$stagingPath\servers\$stagingHost"
@@ -183,13 +192,11 @@ Function Delete-Vaa
 Function Dock-VAA
 (
     [Parameter(Mandatory=$true)]
-    [ValidateScript({
-        [System.IO.Path]::IsPathRooted($_)
-        Test-Path -Path $_ -IsValid -PathType Container
-    })]
-    [string]$vaapath
+    [string]$source
 )
 {
+    $vaapath = (Get-VAALocation $source)
+
     pushd "$Env:AppZero_Path"
     
     & $appzdock $vaapath |
@@ -200,13 +207,32 @@ Function Dock-VAA
     return $vaapath
 }
 
+Function Compress-VAA
+(
+    [Parameter(Mandatory=$true)]
+    [string]$source
+)
+{
+    $vaapath = (Get-VAALocation $source)
+
+    pushd "$Env:AppZero_Path"
+    
+    & $appzcompress $vaapath |
+        Out-PaceLog
+        
+    popd
+    
+    return $vaapath
+}
+
 Function Undock-VAA
 (
     [Parameter(Mandatory=$true)]
-    [ValidateScript({[System.IO.Path]::IsPathRooted($_)})]
-    [string]$vaapath
+    [string]$source
 )
 {
+    $vaapath = (Get-VAALocation $source)
+
     pushd "$Env:AppZero_Path"
     
     & $appzundock $vaapath |
@@ -220,16 +246,16 @@ Function Undock-VAA
 Function Start-VAA
 (
     [Parameter(Mandatory=$true)]
-    [ValidateScript({[System.IO.Path]::IsPathRooted($_)})]
-    [string]$vaapath
+    [string]$source
 )
 {
+    $vaapath = (Get-VAALocation $source)
     
     if( (Get-VaaStatus $vaapath) -ne "Docked" )
     {
         # vaa path return value is generated below
         # drop the return value here so we don't dup it
-        Dock-VAA $vaapath | Out-Null
+        Dock-VAA $source | Out-Null
     }
     
     pushd "$Env:AppZero_Path"
