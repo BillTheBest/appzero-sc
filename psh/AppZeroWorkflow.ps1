@@ -3,6 +3,7 @@
 
 
 
+
 Function New-StagingSession
 (
     [Parameter(Mandatory=$true)][string]$stagingHost,
@@ -16,125 +17,32 @@ Function New-StagingSession
     return $sess
 }
 
-
-
-Function Email-DiscoveryOutput
+Function Invoke-Staging
 (
     [Parameter(Mandatory=$true)]
-    [string]$emailUser,
+    [string]$stagingPath,
     [Parameter(Mandatory=$true)]
-    [string]$emailPassword,
+    [string]$stagingHost,
     [Parameter(Mandatory=$true)]
-    [string]$server
+    $stagingSession,
+    [Parameter(Mandatory=$true)]
+    [string]$script
 )
 {
-    $EmailFrom = $emailUser
-    $EmailTo = $emailUser
-    $Subject = "Discovery Output for Server $server"
-    $Body = @"
-    Please review the attached Worksheet.
-    Thank You.
-"@
-
-    $SMTPServer = "smtp.gmail.com"
-    $SMTPClient = New-Object Net.Mail.SmtpClient($SmtpServer, 587)
-    $SMTPClient.EnableSsl = $true
-    $SMTPClient.Credentials = New-Object System.Net.NetworkCredential
-    $SMTPClient.Credentials = New-Object System.Net.NetworkCredential($emailUser, $emailPassword)
-
-    $emailMessage = New-Object System.Net.Mail.MailMessage
-    $emailMessage.From = $EmailFrom
-    $emailMessage.To.Add($EmailTo)
-    $emailMessage.Subject = $Subject
-    $emailMessage.Body = $Body
-
-    $taggedCsv = (Get-PaceTaggedCsvPath $server)
-    $renamedCsv = Join-Path -Path (Get-PaceLocation $server) -ChildPath "Discovery-For-Server-$server.csv"
-    Copy-Item -Path $taggedCsv -Destination $renamedCsv
-    $attachmentPath = Resolve-Path -Path $renamedCsv
-    $attachment = New-Object System.Net.Mail.Attachment( $attachmentPath )
-    $emailMessage.Attachments.Add($attachment)
-
-    $SMTPClient.send($emailMessage)
-    $emailMessage.dispose()
-    Remove-Item -Path $renamedCsv
+    $result = Invoke-Command -Session $stagingSession -ScriptBlock {
+        Param($stgpath, $stghost, $stgcmd)
+        . "$stgpath\psh\AppZero.ps1" -rootPath $stgpath -stagingHost $stghost |
+            Out-Null
+        . "$stgpath\psh\AppZeroTag.ps1"
+        $scriptObj = [scriptblock]::Create($stgcmd)
+        & ($scriptObj)
+    } -Args $stagingPath, $stagingHost, $script
+    return $result
 }
 
-Function Email-MappFile
-(
-    [Parameter(Mandatory=$true)]
-    [string]$emailUser,
-    [Parameter(Mandatory=$true)]
-    [string]$emailPassword,
-    [Parameter(Mandatory=$true)]
-    [string]$server
-)
-{
-    $EmailFrom = $emailUser
-    $EmailTo = $emailUser
-    $Subject = "App Component Scan Output for Server $server"
-    $Body = @"
-    Please review the attached Mapp file.
-    Thank You.
-"@
 
-    $SMTPServer = "smtp.gmail.com"
-    $SMTPClient = New-Object Net.Mail.SmtpClient($SmtpServer, 587)
-    $SMTPClient.EnableSsl = $true
-    $SMTPClient.Credentials = New-Object System.Net.NetworkCredential
-    $SMTPClient.Credentials = New-Object System.Net.NetworkCredential($emailUser, $emailPassword)
 
-    $emailMessage = New-Object System.Net.Mail.MailMessage
-    $emailMessage.From = $EmailFrom
-    $emailMessage.To.Add($EmailTo)
-    $emailMessage.Subject = $Subject
-    $emailMessage.Body = $Body
 
-    $mappFile = Join-Path -Path (Get-PaceLocation $server) -ChildPath ".\Mapp.xml"
-    $renamedFile = Join-Path -Path (Get-PaceLocation $server) -ChildPath ".\MappFile-For-Server-$server.csv"
-    Copy-Item -Path $mappFile -Destination $renamedFile
-    $attachmentPath = Resolve-Path -Path $renamedFile
-    $attachment = New-Object System.Net.Mail.Attachment( $attachmentPath )
-    $emailMessage.Attachments.Add($attachment)
-
-    $SMTPClient.send($emailMessage)
-    $emailMessage.dispose()
-    Remove-Item -Path $renamedFile
-}
-
-Function Email-ErrorNotification
-(
-    [Parameter(Mandatory=$true)]
-    [string]$emailUser,
-    [Parameter(Mandatory=$true)]
-    [string]$emailPassword,
-    [Parameter(Mandatory=$true)]
-    [string]$runbookName,
-    [Parameter(Mandatory=$true)]
-    [string]$server,
-    [Parameter(Mandatory=$true)]
-    [string]$errorContent
-)
-{
-    $EmailFrom = $emailUser
-    $EmailTo = $emailUser
-    $Subject = "Failure in runbook $runbookName"
-    #$Body = "An error occurred in Runbook $rubookName:`r`n" +
-    #    "Error Information: `r`n" + $errorContent
-
-    $SMTPServer = "smtp.gmail.com"
-    $SMTPClient = New-Object Net.Mail.SmtpClient($SmtpServer, 587)
-    $SMTPClient.EnableSsl = $true
-    $SMTPClient.Credentials = New-Object System.Net.NetworkCredential($emailUser, $emailPassword)
-
-    $emailMessage = New-Object System.Net.Mail.MailMessage
-    $emailMessage.From = $EmailFrom
-    $emailMessage.To.Add($EmailTo)
-    $emailMessage.Subject = $Subject
-    $emailMessage.Body = $Body
-
-    $SMTPClient.send($emailMessage)
-}
 
 #####################  Utility Functions ##############################
 

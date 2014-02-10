@@ -13,8 +13,6 @@ if([System.IO.Path]::IsPathRooted($stagingPath) -ne $True) {
     $stagingPath = Join-Path -Path (pwd) -ChildPath $stagingPath
     $stagingPath = Resolve-Path -Path $stagingPath
 }
-"PACE staging path set to $stagingPath"
-"PACE staging host is $stagingHost"
 
 Function Get-PaceLocation([string]$source)
 {
@@ -311,4 +309,124 @@ Function Get-VAAStatus
 {
     $status = ((& $appzlist $vaapath) -split "\): ")[1]
     return $status
+}
+
+########################  These Should be separated out #######################
+
+Function Email-DiscoveryOutput
+(
+    [Parameter(Mandatory=$true)]
+    [string]$emailUser,
+    [Parameter(Mandatory=$true)]
+    [string]$emailPassword,
+    [Parameter(Mandatory=$true)]
+    [string]$server
+)
+{
+    $EmailFrom = $emailUser
+    $EmailTo = $emailUser
+    $Subject = "Discovery Output for Server $server"
+    $Body = @"
+    Please review the attached Worksheet.
+    Thank You.
+"@
+
+    $SMTPServer = "smtp.gmail.com"
+    $SMTPClient = New-Object Net.Mail.SmtpClient($SmtpServer, 587)
+    $SMTPClient.EnableSsl = $true
+    $SMTPClient.Credentials = New-Object System.Net.NetworkCredential
+    $SMTPClient.Credentials = New-Object System.Net.NetworkCredential($emailUser, $emailPassword)
+
+    $emailMessage = New-Object System.Net.Mail.MailMessage
+    $emailMessage.From = $EmailFrom
+    $emailMessage.To.Add($EmailTo)
+    $emailMessage.Subject = $Subject
+    $emailMessage.Body = $Body
+
+    $taggedCsv = (Get-PaceTaggedCsvPath $server)
+    $renamedCsv = Join-Path -Path (Get-PaceLocation $server) -ChildPath "Discovery-For-Server-$server.csv"
+    Copy-Item -Path $taggedCsv -Destination $renamedCsv
+    $attachmentPath = Resolve-Path -Path $renamedCsv
+    $attachment = New-Object System.Net.Mail.Attachment( $attachmentPath )
+    $emailMessage.Attachments.Add($attachment)
+
+    $SMTPClient.send($emailMessage)
+    $emailMessage.dispose()
+    Remove-Item -Path $renamedCsv
+}
+
+Function Email-MappFile
+(
+    [Parameter(Mandatory=$true)]
+    [string]$emailUser,
+    [Parameter(Mandatory=$true)]
+    [string]$emailPassword,
+    [Parameter(Mandatory=$true)]
+    [string]$server
+)
+{
+    $EmailFrom = $emailUser
+    $EmailTo = $emailUser
+    $Subject = "App Component Scan Output for Server $server"
+    $Body = @"
+    Please review the attached Mapp file.
+    Thank You.
+"@
+
+    $SMTPServer = "smtp.gmail.com"
+    $SMTPClient = New-Object Net.Mail.SmtpClient($SmtpServer, 587)
+    $SMTPClient.EnableSsl = $true
+    $SMTPClient.Credentials = New-Object System.Net.NetworkCredential
+    $SMTPClient.Credentials = New-Object System.Net.NetworkCredential($emailUser, $emailPassword)
+
+    $emailMessage = New-Object System.Net.Mail.MailMessage
+    $emailMessage.From = $EmailFrom
+    $emailMessage.To.Add($EmailTo)
+    $emailMessage.Subject = $Subject
+    $emailMessage.Body = $Body
+
+    $mappFile = Join-Path -Path (Get-PaceLocation $server) -ChildPath ".\Mapp.xml"
+    $renamedFile = Join-Path -Path (Get-PaceLocation $server) -ChildPath ".\MappFile-For-Server-$server.csv"
+    Copy-Item -Path $mappFile -Destination $renamedFile
+    $attachmentPath = Resolve-Path -Path $renamedFile
+    $attachment = New-Object System.Net.Mail.Attachment( $attachmentPath )
+    $emailMessage.Attachments.Add($attachment)
+
+    $SMTPClient.send($emailMessage)
+    $emailMessage.dispose()
+    Remove-Item -Path $renamedFile
+}
+
+Function Email-ErrorNotification
+(
+    [Parameter(Mandatory=$true)]
+    [string]$emailUser,
+    [Parameter(Mandatory=$true)]
+    [string]$emailPassword,
+    [Parameter(Mandatory=$true)]
+    [string]$runbookName,
+    [Parameter(Mandatory=$true)]
+    [string]$server,
+    [Parameter(Mandatory=$true)]
+    [string]$errorContent
+)
+{
+    $EmailFrom = $emailUser
+    $EmailTo = $emailUser
+    $Subject = "Failure in runbook $runbookName"
+    #$Body = "An error occurred in Runbook $rubookName:`r`n" +
+    #    "Error Information: `r`n" + $errorContent
+
+    $SMTPServer = "smtp.gmail.com"
+    $SMTPClient = New-Object Net.Mail.SmtpClient($SmtpServer, 587)
+    $SMTPClient.EnableSsl = $true
+    $SMTPClient.Credentials = New-Object System.Net.NetworkCredential($emailUser, $emailPassword)
+
+    $emailMessage = New-Object System.Net.Mail.MailMessage
+    $emailMessage.From = $EmailFrom
+    $emailMessage.To.Add($EmailTo)
+    $emailMessage.Subject = $Subject
+    $emailMessage.Body = $Body
+
+    $SMTPClient.send($emailMessage)
 }
