@@ -48,8 +48,7 @@ Function Out-PaceLog([string]$logText)
         $parent = Get-PaceStagingHostLocation
         $log = Join-Path -Path $parent -ChildPath ".\$stagingHost.log"
         $timestamp = Get-Date
-        "`r`n------------  $timestamp  ------------`r`n" | Out-File $log -Append
-        $_ | Out-File $log -Append
+        "$timestamp $_" | Out-File $log -Append
     }
 }
 
@@ -168,16 +167,14 @@ Function New-VAA
     return $sources
 }
 
-Function Delete-Vaa
+Function Delete-VAA
 (
     [Parameter(Mandatory=$true)]
-    [ValidateScript({
-        [System.IO.Path]::IsPathRooted($_)
-        Test-Path -Path $_ -IsValid -PathType Container
-    })]
-    [string]$vaapath
+    [string]$source
 )
 {
+    $vaapath = (Get-VAALocation $source)
+
     pushd "$Env:AppZero_Path"
     
     & $appzdel $vaapath |
