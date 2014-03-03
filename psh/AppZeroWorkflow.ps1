@@ -2,30 +2,31 @@
 #
 
 
-
-Function New-PaceRepo
+Function Install-AppZero
 (
     [Parameter(Mandatory=$true)]
     [string]$targetHost,
     [Parameter(Mandatory=$true)]
     [string]$targetHostUser,
-    [Parameter(Mandatory=$true)]
+    [Parameter(Mandatory=$false)]
     [string]$targetHostPassword,
     [Parameter(Mandatory=$true)]
-    [string]$targetPath,
-    [Parameter(Mandatory=$true)]
-    [string]$stagingShare,
-    [Parameter(Mandatory=$true)]
-    [string]$stagingShareUser,
-    [Parameter(Mandatory=$true)]
-    [string]$stagingSharePassword
+    [string]$targetPath
 )
 {
-
     $ErrorActionPreference = "Stop"
-    $Trace = "Setup PACE Working Repo Activity `r`n"
+    $Trace = "Install-AppZero $targetHost $targetHostUser $targetPath `r`n"
 
-    $stgsecpass = ($targetHostPassword | ConvertTo-SecureString -AsPlainText -Force)
+    if([string]::IsNullOrEmpty($targetHostPassword))
+    {
+        $stgsecpass = Read-Host -Prompt "Enter Password for user $targetHostUser on server $targetHost" -AsSecureString
+    }
+    else
+    {
+        $stgsecpass = ($targetHostPassword | ConvertTo-SecureString -AsPlainText -Force)
+    }
+
+    # connect to staging server
     $stgcreds = New-Object System.Management.Automation.PSCredential( $targetHostUser, $stgsecpass )
     $stgsess = New-PSSession -cn $targetHost -Credential $stgcreds
 
@@ -36,22 +37,98 @@ Function New-PaceRepo
     }
 
     try {
-        $return = Invoke-Command -Session $stgsess -ScriptBlock {
-            Param($path,$share,$shareuser,$sharepass)
         
+        # on staging server
+        $return = Invoke-Command -Session $stgsess -ScriptBlock {
+            Param($path,$share,$shareuser,$sharepasssec)
+
+            Copy-Item -Path $targetPath\install\5.5SP1\setup.iss -Destination C:\Windows
+            
+        
+        } -Args $targetPath, $stagingShare, $stagingShareUser, $shrsecpass
+
+    } catch {
+        throw $_.Exception    
+    } finally {
+        Remove-PSSession $stgsess
+        $log = $return -join "`r`n"
+    }
+
+    
+}
+
+
+Function New-PaceRepo
+(
+    [Parameter(Mandatory=$true)]
+    [string]$targetHost,
+    [Parameter(Mandatory=$true)]
+    [string]$targetHostUser,
+    [Parameter(Mandatory=$false)]
+    [string]$targetHostPassword,
+    [Parameter(Mandatory=$true)]
+    [string]$targetPath,
+    [Parameter(Mandatory=$true)]
+    [string]$stagingShare,
+    [Parameter(Mandatory=$true)]
+    [string]$stagingShareUser,
+    [Parameter(Mandatory=$false)]
+    [string]$stagingSharePassword
+)
+{
+    $ErrorActionPreference = "Stop"
+    $Trace = "New-PaceRepo $targetHost $targetHostUser $targetPath $stagingShare $stagingShareUser `r`n"
+
+    if([string]::IsNullOrEmpty($targetHostPassword))
+    {
+        $stgsecpass = Read-Host -Prompt "Enter Password for user $targetHostUser on server $targetHost" -AsSecureString
+    }
+    else
+    {
+        $stgsecpass = ($targetHostPassword | ConvertTo-SecureString -AsPlainText -Force)
+    }
+
+    if([string]::IsNullOrEmpty($stagingSharePassword))
+    {
+        $shrsecpass = Read-Host -Prompt "Enter Password for user $targetHostUser on share $stagingShare" -AsSecureString
+    }
+    else
+    {
+        $shrsecpass = ($stagingSharePassword | ConvertTo-SecureString -AsPlainText -Force)
+    }
+
+    # connect to staging server
+    $stgcreds = New-Object System.Management.Automation.PSCredential( $targetHostUser, $stgsecpass )
+    $stgsess = New-PSSession -cn $targetHost -Credential $stgcreds
+
+    if( $Error.Count -gt 0 )
+    {
+        $Trace += "Error Establishing PSSession to $targetHost`r`n"
+        $Trace += "$Error`r`n"
+    }
+
+    try {
+        
+        # on staging server
+        $return = Invoke-Command -Session $stgsess -ScriptBlock {
+            Param($path,$share,$shareuser,$sharepasssec)
+                               
             if( (Test-Path $path) -ne $true ) {
                 New-Item -ItemType directory -Path $path
             }
 
             if(!(Test-Path "K:\")) {
-                $sharepasssec = ($sharepass | ConvertTo-SecureString -AsPlainText -Force)
+
+                # connect and map to common share
                 $shareCreds = New-Object System.Management.Automation.PSCredential( $shareuser, $sharepasssec )
-                New-PSDrive -Name "K" -PSProvider "FileSystem" -Root $share -Credential $shareCreds
+                New-PSDrive -Name "K" -PSProvider "FileSystem" -Root $share -Credential $shareCreds -ErrorAction:SilentlyContinue
             }
 
+            # copy artifacts from common share
             Copy-Item "K:\*" $path -Recurse -Force 
+            
         
-        } -Args $targetPath, $stagingShare, $stagingShareUser, $stagingSharePassword
+        } -Args $targetPath, $stagingShare, $stagingShareUser, $shrsecpass
 
     } catch {
         throw $_.Exception    
@@ -65,16 +142,27 @@ Function Remove-PaceRepo
 (
     [Parameter(Mandatory=$true)]
     [string]$targetHost,
+    [Parameter(Mandatory=$true)]
     [string]$targetPath = "c:\appzero-sco",
+    [Parameter(Mandatory=$true)]
     [string]$targetHostUser = "Administrator",
-    [string]$targetHostPassword = 'DemoPa$$'
+    [Parameter(Mandatory=$false)]
+    [string]$targetHostPassword
 )
 {
 
     $ErrorActionPreference = "Stop"
-    $Trace = "Remove PACE Working Repo Activity `r`n"
+    $Trace = "Remove-PaceRepo $targetHost $targetHostUser $targetPath `r`n"
 
-    $stgsecpass = ($targetHostPassword | ConvertTo-SecureString -AsPlainText -Force)
+    if([string]::IsNullOrEmpty($targetHostPassword))
+    {
+        $stgsecpass = Read-Host -Prompt "Enter Password for user $targetHostUser on server $targetHost" -AsSecureString
+    }
+    else
+    {
+        $stgsecpass = ($targetHostPassword | ConvertTo-SecureString -AsPlainText -Force)
+    }
+
     $stgcreds = New-Object System.Management.Automation.PSCredential( $targetHostUser, $stgsecpass )
     $stgsess = New-PSSession -cn $targetHost -Credential $stgcreds
 
@@ -101,7 +189,7 @@ Function Remove-PaceRepo
     }
 }
 
-Function Clear-PaceData
+Function Reset-PaceData
 (
     [Parameter(Mandatory=$true)]
     [string]$targetHost,

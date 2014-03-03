@@ -142,6 +142,12 @@ Function Get-SourceMappFiles
     return $sources
 }
 
+Function Remove-SourceMappFile([string]$source)
+{
+    $mappFile = Join-Path -Path (Get-PaceLocation $source) -ChildPath "Mapp.xml"
+    Remove-Item -Path $mappFile
+}
+
 Function New-VAA
 (
     [string]$credentialsFile
