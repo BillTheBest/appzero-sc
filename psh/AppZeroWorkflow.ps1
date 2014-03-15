@@ -233,9 +233,12 @@ Function Reset-PaceData
 
 Function New-StagingSession
 (
-    [Parameter(Mandatory=$true)][string]$stagingHost,
-    [Parameter(Mandatory=$true)][string]$stagingPassword,
-    [Parameter(Mandatory=$true)][string]$stagingUser
+    [Parameter(Mandatory=$true)]
+    [string]$stagingHost,
+    [Parameter(Mandatory=$true)]
+    [string]$stagingPassword,
+    [Parameter(Mandatory=$true)]
+    [string]$stagingUser
 )
 {
     $stgpasssec = $stagingPassword | ConvertTo-SecureString -AsPlainText -Force

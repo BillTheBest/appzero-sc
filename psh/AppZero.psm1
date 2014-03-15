@@ -55,8 +55,12 @@ Function Out-PaceLog([string]$logText)
 Function Reset-PaceData()
 {
     $pacepath = "$stagingPath\servers\$stagingHost\PACE"
+    $vaapath = "$stagingPath\servers\$stagingHost\VAA"
     if( (Test-Path $pacepath ) -eq $true ) {
         Remove-Item -Path $pacepath -Recurse -Force
+    }
+    if( (Test-Path $vaapath) -eq $true ) {
+        Remove-Item -Path $vaapath -Recurse -Force
     }
 }
 
