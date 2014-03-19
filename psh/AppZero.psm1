@@ -1,14 +1,25 @@
 ﻿# Copyright (c) 2013 AppZero Software Corporation.  All Rights Reserved.
 #
 
-Param(
-    [Parameter(Mandatory=$true)]
-    [string]$rootPath,
-    [Parameter(Mandatory=$true)]
-    [string]$stagingHost
-)
+# this runs on module import to check the required arguments
+# need to do this way because cmdletbinding() is still broken for modules in v3
+Param()
+. {
+    Param(
+        [Parameter(Mandatory=$true)]
+        [ValidateScript({[string]::IsNullOrEmpty($_) -ne $true})]
+        $rootPath,
+        [Parameter(Mandatory=$true)]
+        [ValidateScript({[string]::IsNullOrEmpty($_) -ne $true})]
+        $stagingHost
+    )
 
-$stagingPath = $rootPath
+    $GLOBAL:stagingPath = $rootPath
+
+} @args
+
+
+
 if([System.IO.Path]::IsPathRooted($stagingPath) -ne $True) {
     $stagingPath = Join-Path -Path (pwd) -ChildPath $stagingPath
     $stagingPath = Resolve-Path -Path $stagingPath
