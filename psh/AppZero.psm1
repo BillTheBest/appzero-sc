@@ -15,7 +15,7 @@ Param()
     )
 
     $GLOBAL:stagingPath = $rootPath
-
+    $GLOBAL:stagingHost = $stagingHost
 } @args
 
 
@@ -133,9 +133,17 @@ Function Get-PaceSourceInstalledPrograms
 
     & $appzpace /M /L $credentialsFile |
         Out-PaceLog
+
+    if( $LASTEXITCODE -gt 0 )
+    {
+        throw "Error executing $appzpace - exit code is $LASTEXITCODE"
+    }
     
+    $sources = @()
     $parent = Split-Path -Parent $credentialsFile
-    $sources = Get-ChildItem -Path $parent\PACE -Name
+    if( (Test-Path -Path $parent\PACE) -eq $true ) {
+        $sources = Get-ChildItem -Path $parent\PACE -Name
+    }
     return $sources
 }
 
@@ -247,6 +255,40 @@ Function Compress-VAA
     popd
     
     return $vaapath
+}
+
+Function Publish-VAA
+(
+    [Parameter(Mandatory=$true)]
+    [string]$source,
+    [Parameter(Mandatory=$true)]
+    [string]$vaashare,
+    [Parameter(Mandatory=$true)]
+    [ValidateNotNull()]
+    [System.Management.Automation.PSCredential]
+    [System.Management.Automation.Credential()]
+    $Credential = [System.Management.Automation.PSCredential]::Empty,
+    [Parameter(Mandatory=$false)]
+    [string]$Path = $source
+)
+{
+    $vaapath = (Get-VAALocation $source)
+    $storepath = "$vaashare\$path"
+    $timestamp = Get-Date -Format "yyyy-MM-dd hh.mm.ss"
+    #$capFileName = "$source-$timestamp.cap"
+    $capFileName = "$source.cap"
+
+    New-PSDrive -Name "V" -PSProvider "FileSystem" -Root $vaashare -Credential $Credential |
+        Out-Null
+
+    if( (Test-Path -Path $storepath) -ne $true) {
+        New-Item -Path "$storepath" -Type directory |
+            Out-Null
+    }
+    $capfile = Join-Path -Path $storepath -ChildPath $capFileName
+    Copy-Item -Path "$vaapath.cap" -Destination $capfile
+    
+    return $capfile
 }
 
 Function Undock-VAA
