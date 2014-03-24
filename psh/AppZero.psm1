@@ -339,6 +339,48 @@ Function Start-VAA
     return $vaapath
 }
 
+Function Install-VAA
+(
+    [Parameter(Mandatory=$true)]
+    [string]$source,
+    [Parameter(Mandatory=$true)]
+    [string]$vaashare,
+    [Parameter(Mandatory=$true)]
+    [ValidateNotNull()]
+    [System.Management.Automation.PSCredential]
+    [System.Management.Automation.Credential()]
+    $Credential = [System.Management.Automation.PSCredential]::Empty,
+    [Parameter(Mandatory=$false)]
+    [string]$Path = $source
+)
+{
+    $vaapath = (Get-VAALocation $source)
+    $storepath = "$vaashare\$path"
+    $timestamp = Get-Date -Format "yyyy-MM-dd hh.mm.ss"
+    #$capFileName = "$source-$timestamp.cap"
+    $capFileName = "$source.cap"
+
+    New-PSDrive -Name "V" -PSProvider "FileSystem" -Root $vaashare -Credential $Credential |
+        Out-Null
+
+    $capfile = Join-Path -Path $storepath -ChildPath $capFileName
+    $localpath = "$(Get-PaceStagingHostLocation)\VAAs\"
+    New-item -ItemType Directory -Force -Path $localpath
+    Copy-Item -Path $capfile -Destination $localpath
+
+    pushd "$Env:AppZero_Path"
+
+    & $appzuncompress /S "$localpath\$capFileName" |
+        Out-PaceLog
+    
+    & $appzdissolve $vaapath |
+        Out-PaceLog
+        
+    popd
+    
+    return $vaapath
+}
+
 
 Function Get-VaaServiceNames
 (
