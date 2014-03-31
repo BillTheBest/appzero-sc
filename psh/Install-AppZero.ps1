@@ -3,14 +3,29 @@
 # Set up a new PACE working repo
 
 Param(
-    [string]$targetHost = "prod1",
-    [string]$version = "5.4SP1.1",
-    [string]$targetPath = "c:\appzero-sco",
-    [string]$targetHostUser = "Administrator",
-    [string]$targetHostPassword = 'DemoPa$$',
-    [string]$stagingShare = "\\sco\appzero-field",
-    [string]$stagingShareUser = "sco\Administrator",
-    [string]$stagingSharePassword = 'DemoPa$$'
+    [Parameter(Mandatory=$true)]
+    [string]$targetHost,
+    
+    [Parameter(Mandatory=$true)]
+    [string]$version,
+    
+    [Parameter(Mandatory=$true)]
+    [string]$targetPath,
+    
+    [Parameter(Mandatory=$true)]
+    [string]$targetHostUser,
+    
+    [Parameter(Mandatory=$true)]
+    [string]$targetHostPassword,
+    
+    [Parameter(Mandatory=$true)]
+    [string]$stagingShare,
+    
+    [Parameter(Mandatory=$true)]
+    [string]$stagingShareUser,
+    
+    [Parameter(Mandatory=$true)]
+    [string]$stagingSharePassword
 )
 
 $ErrorActionPreference = "Stop"
@@ -29,6 +44,8 @@ if( $Error.Count -gt 0 )
 try {
     $return = Invoke-Command -Session $stgsess -ScriptBlock {
         Param($path,$share,$shareuser,$sharepass,$ver)
+
+        $ErrorActionPreference = "Stop"
         
         if( (Test-Path $path) -ne $true ) {
             New-Item -ItemType directory -Path $path
@@ -36,14 +53,42 @@ try {
 
         $sharepasssec = ($sharepass | ConvertTo-SecureString -AsPlainText -Force)
         $shareCreds = New-Object System.Management.Automation.PSCredential( $shareuser, $sharepasssec )
-        New-PSDrive -Name "K" -PSProvider "FileSystem" -Root $share -Credential $shareCreds
-        Copy-Item "$share\*" $path -Recurse -Force
 
-        Copy-Item "$share\install\$ver\setup.iss" "C:\windows\"
+        $success = $true
+
+        try {
+            #New-PSDrive -Name "K" -PSProvider "FileSystem" -Root $share -Credential $shareCreds
+            net use K: $share $sharepass /user:$shareuser
+        } catch {
+            $success = $false
+            $msg = "Failed to map network drive: "
+            $msg += $_.Exception.Message
+            throw $msg
+        }
+
+        try {
+            Copy-Item "$share\*" $path -Recurse -Force
+        } catch {
+            $success = $false
+            $msg = "Failed to copy repo from share: "
+            $msg += $_.Exception.Message
+            throw $msg
+        }
+
+        try {
+            Copy-Item "$share\install\$ver\setup.iss" "C:\windows\"
+        } catch {
+            $success = $false
+            throw "Failed to copy .ISS file"
+        }
+        
         $cmd = "$path\install\$ver\AppZero64-BitSetup.exe /s /f1`"c:\windows\setup.iss`""
         "Running command: $cmd" | Out-File c:\install.log
         cmd /c $cmd |  Out-File c:\install.log -Append
-        Restart-Computer -Force
+
+        if($success -eq $true) {
+            Restart-Computer -Force
+        }
         
     } -Args $targetPath, $stagingShare, $stagingShareUser, $stagingSharePassword, $version
 
