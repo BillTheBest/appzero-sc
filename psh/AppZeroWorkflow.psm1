@@ -211,6 +211,13 @@ Function New-StagingSession
     $stgpasssec = $stagingPassword | ConvertTo-SecureString -AsPlainText -Force
     $stagingCreds = New-Object System.Management.Automation.PSCredential( $stagingUser, $stgpasssec )
     $sess = New-PSSession -cn $stagingHost -Credential $stagingCreds
+    
+    $result = Invoke-Command -Session $sess -ScriptBlock {
+        Param($stgpath,$stghost)
+        Import-Module $stgpath\psh\AppZero.psm1 -ArgumentList $stgpath,$stghost
+        Import-Module $stgpath\psh\AppZeroTag.psm1
+    } -ArgumentList $stagingPath,$stagingHost
+    
     return $sess
 }
 
@@ -243,14 +250,14 @@ Function Invoke-Staging
     [Parameter(Mandatory=$true)]
     $stagingSession,
     [Parameter(Mandatory=$true)]
-    [string]$script
+    [string]$script 
 )
 {
     $result = Invoke-Command -Session $stagingSession -ScriptBlock {
         Param($stgpath, $stghost, $stgcmd)
-        . "$stgpath\psh\AppZero.ps1" -rootPath $stgpath -stagingHost $stghost |
+        Import-Module "$stgpath\psh\AppZero.psm1" -ArgumentList $stgpath,$stghost |
             Out-Null
-        . "$stgpath\psh\AppZeroTag.ps1"
+        Import-Module "$stgpath\psh\AppZeroTag.psm1"
         $scriptObj = [scriptblock]::Create($stgcmd)
         & ($scriptObj)
     } -Args $stagingPath, $stagingHost, $script
