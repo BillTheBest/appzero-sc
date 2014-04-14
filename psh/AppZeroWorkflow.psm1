@@ -10,6 +10,79 @@ Function Initialize-Pace
     $Global:stagingPath = $stagingPath
 }
 
+Function Initialize-PaceRepo
+(
+    [Parameter(Mandatory=$true)]
+    [string]$sourcesFile,
+    [Parameter(Mandatory=$true)]
+    [string]$localBasePath,
+    [Parameter(Mandatory=$true)]
+    [string[]]$discoveryHosts,
+    [Parameter(Mandatory=$true)]
+    [string[]]$stagingHosts,
+    [Parameter(Mandatory=$true)]
+    [string[]]$uatHosts,
+    [Parameter(Mandatory=$true)]
+    [string[]]$prodHosts
+)
+{
+    # load the server credentials file
+    $sources = @(Import-Csv $sourcesFile)
+    
+    # put everything in a \servers folder under local base
+    $serversDirPath = Join-Path -Path $localBasePath -ChildPath "servers"
+    if( (Test-Path -Path $serversDirPath -PathType Container) -ne $true )
+    {
+        New-Item -ItemType directory -Path $serversDirPath
+    }
+    else
+    {
+        # if it's already there delete the contents
+        Get-ChildItem -Path $serverDirPath | Remove-Item -Recurse -Force
+    }
+
+    $discoveryCount = $discoveryHosts.Length
+    for( $d = 0 ; $d -lt $discoveryCount ; $d++ )
+    {
+        $serverSubDirPath = Join-Path -Path $serversDirPath -ChildPath ($discoveryHosts[$d])
+        New-Item -ItemType directory -Path $serverSubDirPath
+        $assignedSources = @()
+        $assignedSources = @( 0..$sources.Count | %{ if( ($_ % $discoveryCount) -eq $d ) { $sources[$_] } } )
+        $serverSourcesFile = Join-Path -Path $serverSubDirPath -ChildPath "servers.csv"
+        $assignedSources | Export-Csv -Path $serverSourcesFile -NoTypeInformation
+    }
+
+    $stagingCount = $stagingHosts.Length
+    for( $s = 0 ; $s -lt $stagingCount ; $s++ )
+    {
+        $serverSubDirPath = Join-Path -Path $serversDirPath -ChildPath ($stagingHosts[$s])
+        New-Item -ItemType directory -Path $serverSubDirPath
+        $assignedSources = @( 0..$sources.Count | %{ if( ($_ % $stagingCount) -eq $s ) { $sources[$_] } } )
+        $serverSourcesFile = Join-Path -Path $serverSubDirPath -ChildPath "servers.csv"
+        $assignedSources | Export-Csv -Path $serverSourcesFile -NoTypeInformation
+    }
+    
+    $uatCount = $uatHosts.Length
+    for( $u = 0 ; $u -lt $uatCount ; $u++ )
+    {
+        $serverSubDirPath = Join-Path -Path $serversDirPath -ChildPath ($uatHosts[$u])
+        New-Item -ItemType directory -Path $serverSubDirPath
+        $assignedSources = @( 0..$sources.Count | %{ if( ($_ % $uatCount) -eq $u ) { $sources[$_] } } )
+        $serverSourcesFile = Join-Path -Path $serverSubDirPath -ChildPath "servers.csv"
+        $assignedSources | Export-Csv -Path $serverSourcesFile -NoTypeInformation
+    }
+
+    $prodCount = $prodHosts.Length
+    for( $p = 0 ; $p -lt $prodCount ; $u++ )
+    {
+        $serverSubDirPath = Join-Path -Path $serversDirPath -ChildPath ($prodHosts[$p])
+        New-Item -ItemType directory -Path $serverSubDirPath
+        $assignedSources = @( 0..$sources.Count | %{ if( ($_ % $prodCount) -eq $p ) { $sources[$_] } } )
+        $serverSourcesFile = Join-Path -Path $serverSubDirPath -ChildPath "servers.csv"
+        $assignedSources | Export-Csv -Path $serverSourcesFile -NoTypeInformation
+    }
+}
+
 
 Function Install-AppZero
 (
