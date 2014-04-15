@@ -28,6 +28,18 @@ Function Initialize-PaceRepo
 {
     # load the server credentials file
     $sources = @(Import-Csv $sourcesFile)
+
+    # create a .pace directory to indicate a pace repo
+    $dotPacePath = Join-Path -Path $localBasePath -ChildPath ".pace"
+    if( (Test-Path -Path $dotPacePath -PathType Container) -ne $true )
+    {
+        New-Item -ItemType directory -Path $dotPacePath
+    }
+    else
+    {
+        # if it's already there delete the contents
+        #Get-ChildItem -Path $dotPacePath | Remove-Item -Recurse
+    }
     
     # put everything in a \servers folder under local base
     $serversDirPath = Join-Path -Path $localBasePath -ChildPath "servers"
@@ -38,7 +50,7 @@ Function Initialize-PaceRepo
     else
     {
         # if it's already there delete the contents
-        Get-ChildItem -Path $serverDirPath | Remove-Item -Recurse -Force
+        #Get-ChildItem -Path $serverDirPath | Remove-Item -Recurse
     }
 
     $discoveryCount = $discoveryHosts.Length
@@ -48,6 +60,7 @@ Function Initialize-PaceRepo
         New-Item -ItemType directory -Path $serverSubDirPath
         $assignedSources = @()
         $assignedSources = @( 0..$sources.Count | %{ if( ($_ % $discoveryCount) -eq $d ) { $sources[$_] } } )
+        $assignedSources
         $serverSourcesFile = Join-Path -Path $serverSubDirPath -ChildPath "servers.csv"
         $assignedSources | Export-Csv -Path $serverSourcesFile -NoTypeInformation
     }
