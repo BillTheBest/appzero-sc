@@ -27,7 +27,7 @@ Function Initialize-PaceRepo
 )
 {
     # load the server credentials file
-    $sources = @(Import-Csv $sourcesFile)
+    $sources = gc $sourcesFile
 
     # create a .pace directory to indicate a pace repo
     $dotPacePath = Join-Path -Path $localBasePath -ChildPath ".pace"
@@ -59,10 +59,9 @@ Function Initialize-PaceRepo
         $serverSubDirPath = Join-Path -Path $serversDirPath -ChildPath ($discoveryHosts[$d])
         New-Item -ItemType directory -Path $serverSubDirPath
         $assignedSources = @()
-        $assignedSources = @( 0..$sources.Count | %{ if( ($_ % $discoveryCount) -eq $d ) { $sources[$_] } } )
-        $assignedSources
+        $assignedSources = @( 0..($sources.Count - 1) | %{ if( ($_ % $discoveryCount) -eq $d ) { $sources[$_] } } )
         $serverSourcesFile = Join-Path -Path $serverSubDirPath -ChildPath "servers.csv"
-        $assignedSources | Export-Csv -Path $serverSourcesFile -NoTypeInformation
+        $assignedSources | Add-Content -Path $serverSourcesFile
     }
 
     $stagingCount = $stagingHosts.Length
@@ -70,9 +69,10 @@ Function Initialize-PaceRepo
     {
         $serverSubDirPath = Join-Path -Path $serversDirPath -ChildPath ($stagingHosts[$s])
         New-Item -ItemType directory -Path $serverSubDirPath
-        $assignedSources = @( 0..$sources.Count | %{ if( ($_ % $stagingCount) -eq $s ) { $sources[$_] } } )
+        $assignedSources = @()
+        $assignedSources = @( 0..($sources.Count - 1) | %{ if( ($_ % $stagingCount) -eq $s ) { $sources[$_] } } )
         $serverSourcesFile = Join-Path -Path $serverSubDirPath -ChildPath "servers.csv"
-        $assignedSources | Export-Csv -Path $serverSourcesFile -NoTypeInformation
+        $assignedSources | Add-Content -Path $serverSourcesFile 
     }
     
     $uatCount = $uatHosts.Length
@@ -80,19 +80,21 @@ Function Initialize-PaceRepo
     {
         $serverSubDirPath = Join-Path -Path $serversDirPath -ChildPath ($uatHosts[$u])
         New-Item -ItemType directory -Path $serverSubDirPath
-        $assignedSources = @( 0..$sources.Count | %{ if( ($_ % $uatCount) -eq $u ) { $sources[$_] } } )
+        $assignedSources = @()
+        $assignedSources = @( 0..($sources.Count - 1) | %{ if( ($_ % $uatCount) -eq $u ) { $sources[$_] } } )
         $serverSourcesFile = Join-Path -Path $serverSubDirPath -ChildPath "servers.csv"
-        $assignedSources | Export-Csv -Path $serverSourcesFile -NoTypeInformation
+        $assignedSources | Add-Content -Path $serverSourcesFile
     }
 
     $prodCount = $prodHosts.Length
-    for( $p = 0 ; $p -lt $prodCount ; $u++ )
+    for( $p = 0 ; $p -lt $prodCount ; $p++ )
     {
         $serverSubDirPath = Join-Path -Path $serversDirPath -ChildPath ($prodHosts[$p])
         New-Item -ItemType directory -Path $serverSubDirPath
-        $assignedSources = @( 0..$sources.Count | %{ if( ($_ % $prodCount) -eq $p ) { $sources[$_] } } )
+        $assignedSources = @()
+        $assignedSources = @( 0..($sources.Count - 1) | %{ if( ($_ % $prodCount) -eq $p ) { $sources[$_] } } )
         $serverSourcesFile = Join-Path -Path $serverSubDirPath -ChildPath "servers.csv"
-        $assignedSources | Export-Csv -Path $serverSourcesFile -NoTypeInformation
+        $assignedSources | Add-Content -Path $serverSourcesFile
     }
 }
 
