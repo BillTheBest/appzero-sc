@@ -3,7 +3,7 @@
 # Set up a new PACE working repo
 
 Param(
-    [string]$targetHost = "prod1",
+    [string]$targetHost = "prod2",
     [string]$version = "5.4SP1.1",
     [string]$targetPath = "c:\appzero-sco",
     [string]$targetHostUser = "Administrator",
@@ -15,5 +15,6 @@ Param(
 
 
 cd C:\Users\Administrator\dev\appzero-field
-& .\psh\Install-AppZero.ps1 $targetHost $version $targetPath $targetHostUser $targetHostPassword $stagingShare $stagingShareUser $stagingSharePassword
+Import-Module .\psh\AppZeroWorkflow.psm1
+Install-AppZero $targetHost $version $targetPath $targetHostUser $targetHostPassword $stagingShare $stagingShareUser $stagingSharePassword
 
