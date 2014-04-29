@@ -103,27 +103,33 @@ Function Install-AppZero
 (
     [Parameter(Mandatory=$true)]
     [string]$targetHost,
+    
+    [Parameter(Mandatory=$true)]
+    [string]$version,
+    
+    [Parameter(Mandatory=$true)]
+    [string]$targetPath,
+    
     [Parameter(Mandatory=$true)]
     [string]$targetHostUser,
-    [Parameter(Mandatory=$false)]
-    [string]$targetHostPassword,
+    
     [Parameter(Mandatory=$true)]
-    [string]$targetPath
+    [string]$targetHostPassword,
+    
+    [Parameter(Mandatory=$true)]
+    [string]$stagingShare,
+    
+    [Parameter(Mandatory=$true)]
+    [string]$stagingShareUser,
+    
+    [Parameter(Mandatory=$true)]
+    [string]$stagingSharePassword
 )
 {
     $ErrorActionPreference = "Stop"
-    $Trace = "Install-AppZero $targetHost $targetHostUser $targetPath `r`n"
+    $Trace = "Setup PACE Working Repo Activity `r`n"
 
-    if([string]::IsNullOrEmpty($targetHostPassword))
-    {
-        $stgsecpass = Read-Host -Prompt "Enter Password for user $targetHostUser on server $targetHost" -AsSecureString
-    }
-    else
-    {
-        $stgsecpass = ($targetHostPassword | ConvertTo-SecureString -AsPlainText -Force)
-    }
-
-    # connect to staging server
+    $stgsecpass = ($targetHostPassword | ConvertTo-SecureString -AsPlainText -Force)
     $stgcreds = New-Object System.Management.Automation.PSCredential( $targetHostUser, $stgsecpass )
     $stgsess = New-PSSession -cn $targetHost -Credential $stgcreds
 
@@ -134,15 +140,55 @@ Function Install-AppZero
     }
 
     try {
-        
-        # on staging server
         $return = Invoke-Command -Session $stgsess -ScriptBlock {
-            Param($path,$share,$shareuser,$sharepasssec)
+            Param($path,$share,$shareuser,$sharepass,$ver)
 
-            Copy-Item -Path $targetPath\install\5.5SP1\setup.iss -Destination C:\Windows
-            
+            $ErrorActionPreference = "Stop"
         
-        } -Args $targetPath, $stagingShare, $stagingShareUser, $shrsecpass
+            if( (Test-Path $path) -ne $true ) {
+                New-Item -ItemType directory -Path $path
+            }
+
+            $sharepasssec = ($sharepass | ConvertTo-SecureString -AsPlainText -Force)
+            $shareCreds = New-Object System.Management.Automation.PSCredential( $shareuser, $sharepasssec )
+
+            $success = $true
+
+            try {
+                #New-PSDrive -Name "K" -PSProvider "FileSystem" -Root $share -Credential $shareCreds
+                net use K: $share $sharepass /user:$shareuser
+            } catch {
+                $success = $false
+                $msg = "Failed to map network drive: "
+                $msg += $_.Exception.Message
+                throw $msg
+            }
+
+            try {
+                Copy-Item "$share\*" $path -Recurse -Force
+            } catch {
+                $success = $false
+                $msg = "Failed to copy repo from share: "
+                $msg += $_.Exception.Message
+                throw $msg
+            }
+
+            try {
+                Copy-Item "$share\install\$ver\setup.iss" "C:\windows\"
+            } catch {
+                $success = $false
+                throw "Failed to copy .ISS file"
+            }
+        
+            $cmd = "$path\install\$ver\AppZero64-BitSetup.exe /s /f1`"c:\windows\setup.iss`""
+            "Running command: $cmd" | Out-File c:\install.log
+            cmd /c $cmd |  Out-File c:\install.log -Append
+
+            if($success -eq $true) {
+                Restart-Computer -Force
+            }
+        
+        } -Args $targetPath, $stagingShare, $stagingShareUser, $stagingSharePassword, $version
 
     } catch {
         throw $_.Exception    
