@@ -204,7 +204,7 @@ Function New-VAA
     return $sources
 }
 
-Function Delete-VAA
+Function Remove-VAA
 (
     [Parameter(Mandatory=$true)]
     [string]$source
@@ -220,8 +220,7 @@ Function Delete-VAA
     popd
 }
 
-# this should probably be Register-
-Function Dock-VAA
+Function Register-VAA
 (
     [Parameter(Mandatory=$true)]
     [string]$source
@@ -291,7 +290,7 @@ Function Publish-VAA
     return $capfile
 }
 
-Function Undock-VAA
+Function Unregister-VAA
 (
     [Parameter(Mandatory=$true)]
     [string]$source
@@ -423,7 +422,7 @@ Function Get-VAAStatus
 
 ########################  These Should be separated out #######################
 
-Function Email-DiscoveryOutput
+Function Send-DiscoveryOutput
 (
     [Parameter(Mandatory=$true)]
     [string]$emailUser,
@@ -465,7 +464,7 @@ Function Email-DiscoveryOutput
     Remove-Item -Path $renamedCsv
 }
 
-Function Email-MappFile
+Function Send-MappFile
 (
     [Parameter(Mandatory=$true)]
     [string]$emailUser,
@@ -507,7 +506,7 @@ Function Email-MappFile
     Remove-Item -Path $renamedFile
 }
 
-Function Email-ErrorNotification
+Function Send-ErrorNotification
 (
     [Parameter(Mandatory=$true)]
     [string]$emailUser,
