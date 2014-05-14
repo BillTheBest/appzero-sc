@@ -58,6 +58,7 @@ Function Initialize-PaceRepo
     {
         $serverSubDirPath = Join-Path -Path $serversDirPath -ChildPath ($discoveryHosts[$d])
         New-Item -ItemType directory -Path $serverSubDirPath
+        Set-RemoteCredentials -TargetHost $discoveryHosts[$d] -LocalBasePath $localBasePath
         $assignedSources = @()
         $assignedSources = @( 0..($sources.Count - 1) | %{ if( ($_ % $discoveryCount) -eq $d ) { $sources[$_] } } )
         $serverSourcesFile = Join-Path -Path $serverSubDirPath -ChildPath "servers.csv"
@@ -69,6 +70,7 @@ Function Initialize-PaceRepo
     {
         $serverSubDirPath = Join-Path -Path $serversDirPath -ChildPath ($stagingHosts[$s])
         New-Item -ItemType directory -Path $serverSubDirPath
+        Set-RemoteCredentials -TargetHost $stagingHosts[$s] -LocalBasePath $localBasePath
         $assignedSources = @()
         $assignedSources = @( 0..($sources.Count - 1) | %{ if( ($_ % $stagingCount) -eq $s ) { $sources[$_] } } )
         $serverSourcesFile = Join-Path -Path $serverSubDirPath -ChildPath "servers.csv"
@@ -80,6 +82,7 @@ Function Initialize-PaceRepo
     {
         $serverSubDirPath = Join-Path -Path $serversDirPath -ChildPath ($uatHosts[$u])
         New-Item -ItemType directory -Path $serverSubDirPath
+        Set-RemoteCredentials -TargetHost $uatHosts[$u] -LocalBasePath $localBasePath
         $assignedSources = @()
         $assignedSources = @( 0..($sources.Count - 1) | %{ if( ($_ % $uatCount) -eq $u ) { $sources[$_] } } )
         $serverSourcesFile = Join-Path -Path $serverSubDirPath -ChildPath "servers.csv"
@@ -91,6 +94,7 @@ Function Initialize-PaceRepo
     {
         $serverSubDirPath = Join-Path -Path $serversDirPath -ChildPath ($prodHosts[$p])
         New-Item -ItemType directory -Path $serverSubDirPath
+        Set-RemoteCredentials -TargetHost $prodHosts[$p] -LocalBasePath $localBasePath
         $assignedSources = @()
         $assignedSources = @( 0..($sources.Count - 1) | %{ if( ($_ % $prodCount) -eq $p ) { $sources[$_] } } )
         $serverSourcesFile = Join-Path -Path $serverSubDirPath -ChildPath "servers.csv"
@@ -98,6 +102,20 @@ Function Initialize-PaceRepo
     }
 }
 
+Function Set-RemoteCredentials
+(
+    [Parameter(Mandatory=$true)]
+    [string]$TargetHost,
+    [Parameter(Mandatory=$true)]
+    [string]$LocalBasePath,
+    [string]$UserName = "Administrator"
+)
+{
+    $dotPacePath = Join-Path -Path $localBasePath -ChildPath ".pace"
+    $credsPath = Join-Path -Path $dotPacePath -ChildPath "$targetHost.creds"
+    $creds = Get-Credential -UserName $userName -Message "Enter Credentials for host $targetHost"
+    $creds | Export-Clixml $credsPath
+}
 
 Function Install-AppZero
 (
