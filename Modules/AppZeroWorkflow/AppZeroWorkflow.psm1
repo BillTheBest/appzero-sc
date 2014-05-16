@@ -4,10 +4,13 @@
 Function Initialize-Pace
 (
     [Parameter(Mandatory=$true)]
-    [string]$stagingPath
+    [string]$stagingPath,
+    [Parameter(Mandatory=$true)]
+    [string]$LocalBasePath
 )
 {
     $Global:stagingPath = $stagingPath
+    $Global:localBasePath = $LocalBasePath
 }
 
 Function Initialize-PaceRepo
@@ -58,7 +61,7 @@ Function Initialize-PaceRepo
     {
         $serverSubDirPath = Join-Path -Path $serversDirPath -ChildPath ($discoveryHosts[$d])
         New-Item -ItemType directory -Path $serverSubDirPath
-        Set-RemoteCredentials -TargetHost $discoveryHosts[$d] -LocalBasePath $localBasePath
+        Set-AZRemoteCredentials -TargetHost $discoveryHosts[$d] -LocalBasePath $localBasePath
         $assignedSources = @()
         $assignedSources = @( 0..($sources.Count - 1) | %{ if( ($_ % $discoveryCount) -eq $d ) { $sources[$_] } } )
         $serverSourcesFile = Join-Path -Path $serverSubDirPath -ChildPath "servers.csv"
@@ -70,7 +73,7 @@ Function Initialize-PaceRepo
     {
         $serverSubDirPath = Join-Path -Path $serversDirPath -ChildPath ($stagingHosts[$s])
         New-Item -ItemType directory -Path $serverSubDirPath
-        Set-RemoteCredentials -TargetHost $stagingHosts[$s] -LocalBasePath $localBasePath
+        Set-AZRemoteCredentials -TargetHost $stagingHosts[$s] -LocalBasePath $localBasePath
         $assignedSources = @()
         $assignedSources = @( 0..($sources.Count - 1) | %{ if( ($_ % $stagingCount) -eq $s ) { $sources[$_] } } )
         $serverSourcesFile = Join-Path -Path $serverSubDirPath -ChildPath "servers.csv"
@@ -82,7 +85,7 @@ Function Initialize-PaceRepo
     {
         $serverSubDirPath = Join-Path -Path $serversDirPath -ChildPath ($uatHosts[$u])
         New-Item -ItemType directory -Path $serverSubDirPath
-        Set-RemoteCredentials -TargetHost $uatHosts[$u] -LocalBasePath $localBasePath
+        Set-AZRemoteCredentials -TargetHost $uatHosts[$u] -LocalBasePath $localBasePath
         $assignedSources = @()
         $assignedSources = @( 0..($sources.Count - 1) | %{ if( ($_ % $uatCount) -eq $u ) { $sources[$_] } } )
         $serverSourcesFile = Join-Path -Path $serverSubDirPath -ChildPath "servers.csv"
@@ -94,7 +97,7 @@ Function Initialize-PaceRepo
     {
         $serverSubDirPath = Join-Path -Path $serversDirPath -ChildPath ($prodHosts[$p])
         New-Item -ItemType directory -Path $serverSubDirPath
-        Set-RemoteCredentials -TargetHost $prodHosts[$p] -LocalBasePath $localBasePath
+        Set-AZRemoteCredentials -TargetHost $prodHosts[$p] -LocalBasePath $localBasePath
         $assignedSources = @()
         $assignedSources = @( 0..($sources.Count - 1) | %{ if( ($_ % $prodCount) -eq $p ) { $sources[$_] } } )
         $serverSourcesFile = Join-Path -Path $serverSubDirPath -ChildPath "servers.csv"
@@ -102,7 +105,7 @@ Function Initialize-PaceRepo
     }
 }
 
-Function Set-RemoteCredentials
+Function Set-AZRemoteCredentials
 (
     [Parameter(Mandatory=$true)]
     [string]$TargetHost,
@@ -117,25 +120,33 @@ Function Set-RemoteCredentials
     $creds | Export-Clixml $credsPath
 }
 
+Function Get-AZRemoteCredentials
+(
+    [Parameter(Mandatory=$true)]
+    [string]$TargetHost,
+    [Parameter(Mandatory=$true)]
+    [string]$LocalBasePath
+)
+{
+    $dotPacePath = Join-Path -Path $LocalBasePath -ChildPath ".pace"
+    $credsPath = Join-Path -Path $dotPacePath -ChildPath "$TargetHost.creds"
+    $creds = Import-Clixml $credsPath
+    return $creds
+}
+
 Function Install-AppZero
 (
     [Parameter(Mandatory=$true)]
-    [string]$targetHost,
-    
-    [Parameter(Mandatory=$true)]
-    [string]$version,
+    [string]$TargetHost,
     
     [Parameter(Mandatory=$true)]
     [string]$targetPath,
     
     [Parameter(Mandatory=$true)]
-    [string]$targetHostUser,
-    
-    [Parameter(Mandatory=$true)]
-    [string]$targetHostPassword,
-    
-    [Parameter(Mandatory=$true)]
     [string]$stagingShare,
+
+    [Parameter(Mandatory=$true)]
+    [string]$codeShare,
     
     [Parameter(Mandatory=$true)]
     [string]$stagingShareUser,
@@ -147,9 +158,8 @@ Function Install-AppZero
     $ErrorActionPreference = "Stop"
     $Trace = "Setup PACE Working Repo Activity `r`n"
 
-    $stgsecpass = ($targetHostPassword | ConvertTo-SecureString -AsPlainText -Force)
-    $stgcreds = New-Object System.Management.Automation.PSCredential( $targetHostUser, $stgsecpass )
-    $stgsess = New-PSSession -cn $targetHost -Credential $stgcreds
+    $stgcreds = Get-AZRemoteCredentials -TargetHost $TargetHost -LocalBasePath $LocalBasePath
+    $stgsess = New-PSSession -cn $TargetHost -Credential $stgcreds
 
     if( $Error.Count -gt 0 )
     {
@@ -159,7 +169,7 @@ Function Install-AppZero
 
     try {
         $return = Invoke-Command -Session $stgsess -ScriptBlock {
-            Param($path,$share,$shareuser,$sharepass,$ver)
+            Param($path,$stgshare,$codeshare,$shareuser,$sharepass)
 
             $ErrorActionPreference = "Stop"
         
@@ -174,7 +184,8 @@ Function Install-AppZero
 
             try {
                 #New-PSDrive -Name "K" -PSProvider "FileSystem" -Root $share -Credential $shareCreds
-                net use K: $share $sharepass /user:$shareuser
+                net use K: $stgshare $sharepass /user:$shareuser
+                #net use K: $codeshare $sharepass /user:$shareuser
             } catch {
                 $success = $false
                 $msg = "Failed to map network drive: "
@@ -183,7 +194,22 @@ Function Install-AppZero
             }
 
             try {
-                Copy-Item "$share\*" $path -Recurse -Force
+                # make local copy of staging share
+                Copy-Item "$stgshare\*" $path -Recurse -Force
+                # make local copy of code share
+                #$subfolder = (Get-Item $codeshare).Name
+                $subfolder = "appzero-sc"
+                $localCodePath = Join-Path -Path $path -ChildPath $subfolder
+                New-Item -ItemType directory -Path $localCodePath
+                Copy-Item "$codeshare\Modules" $localCodePath -Recurse -Force
+                Copy-Item "$codeshare\install" $localCodePath -Recurse -Force
+                try {
+                    & "$localCodePath\install\Install-AppZeroModules.ps1" -sourceRootPath $localCodePath
+                } catch {
+                    $_.Exception.Message | Out-File c:\install.log -Append
+                    "Paths: $localCodePath" | Out-File c:\install.log -Append
+                    throw $_
+                }
             } catch {
                 $success = $false
                 $msg = "Failed to copy repo from share: "
@@ -192,13 +218,13 @@ Function Install-AppZero
             }
 
             try {
-                Copy-Item "$share\install\$ver\setup.iss" "C:\windows\"
+                Copy-Item "$codeshare\install\setup.iss" "C:\windows\"
             } catch {
                 $success = $false
                 throw "Failed to copy .ISS file"
             }
         
-            $cmd = "$path\install\$ver\AppZero64-BitSetup.exe /s /f1`"c:\windows\setup.iss`""
+            $cmd = "$path\install\AppZero64-BitSetup.exe /s /f1`"c:\windows\setup.iss`""
             "Running command: $cmd" | Out-File c:\install.log
             cmd /c $cmd |  Out-File c:\install.log -Append
 
@@ -206,7 +232,7 @@ Function Install-AppZero
                 Restart-Computer -Force
             }
         
-        } -Args $targetPath, $stagingShare, $stagingShareUser, $stagingSharePassword, $version
+        } -Args $targetPath, $stagingShare, $codeShare, $stagingShareUser, $stagingSharePassword
 
     } catch {
         throw $_.Exception    
