@@ -320,7 +320,7 @@ Function Start-VAA
     {
         # vaa path return value is generated below
         # drop the return value here so we don't dup it
-        Dock-VAA $source | Out-Null
+        Register-VAA $source | Out-Null
     }
     
     pushd "$Env:AppZero_Path"

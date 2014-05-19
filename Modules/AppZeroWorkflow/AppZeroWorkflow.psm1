@@ -182,6 +182,11 @@ Function Install-AppZero
 
             $success = $true
 
+            # set up the code repo path under the staging path
+            #$subfolder = (Get-Item $codeshare).Name
+            $subfolder = "appzero-sc"
+            $localCodePath = Join-Path -Path $path -ChildPath $subfolder
+
             try {
                 #New-PSDrive -Name "K" -PSProvider "FileSystem" -Root $share -Credential $shareCreds
                 net use K: $stgshare $sharepass /user:$shareuser
@@ -196,13 +201,12 @@ Function Install-AppZero
             try {
                 # make local copy of staging share
                 Copy-Item "$stgshare\*" $path -Recurse -Force
+                
                 # make local copy of code share
-                #$subfolder = (Get-Item $codeshare).Name
-                $subfolder = "appzero-sc"
-                $localCodePath = Join-Path -Path $path -ChildPath $subfolder
                 New-Item -ItemType directory -Path $localCodePath
                 Copy-Item "$codeshare\Modules" $localCodePath -Recurse -Force
                 Copy-Item "$codeshare\install" $localCodePath -Recurse -Force
+                Copy-Item "$codeshare\rules" $localCodePath -Recurse -Force
                 try {
                     & "$localCodePath\install\Install-AppZeroModules.ps1" -sourceRootPath $localCodePath
                 } catch {
@@ -224,7 +228,7 @@ Function Install-AppZero
                 throw "Failed to copy .ISS file"
             }
         
-            $cmd = "$path\install\AppZero64-BitSetup.exe /s /f1`"c:\windows\setup.iss`""
+            $cmd = "$localCodePath\install\AppZero64-BitSetup.exe /s /f1`"c:\windows\setup.iss`""
             "Running command: $cmd" | Out-File c:\install.log
             cmd /c $cmd |  Out-File c:\install.log -Append
 

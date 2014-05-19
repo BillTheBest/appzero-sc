@@ -1,6 +1,8 @@
 ﻿# Copyright (c) 2013 AppZero Software Corporation.  All Rights Reserved.
 #
 
+Import-Module AppZeroWorkflow
+
 Function New-AZRemoteSession
 (
     [Parameter(Mandatory=$true)]
@@ -11,16 +13,16 @@ Function New-AZRemoteSession
     [string]$TargetPath
 )
 {
-    $dotPacePath = Join-Path -Path $LocalBasePath -ChildPath ".pace"
-    $credsPath = Join-Path -Path $dotPacePath -ChildPath "$TargetHost.creds"
-    $creds = Import-Clixml $credsPath
+    
+    $creds = Get-AZRemoteCredentials -TargetHost $TargetHost -LocalBasePath $LocalBasePath
     $sess = New-PSSession -cn $TargetHost -Credential $creds
     
     $result = Invoke-Command -Session $sess -ScriptBlock {
         Param($stgpath,$stghost)
-        Import-Module $stgpath\psh\AppZero.psm1 -ArgumentList $stgpath,$stghost
-        Import-Module $stgpath\psh\AppZeroTag.psm1
+        Import-Module AppZero -ArgumentList $stgpath,$stghost
+        Import-Module AppZeroTag
     } -ArgumentList $TargetPath,$TargetHost
     
     return $sess
 }
+
