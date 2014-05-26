@@ -18,7 +18,7 @@ Function Get-PaceRawCsvPath
     [string]$source
 )
 {
-    return "$(Get-PaceLocation $source)\L.csv"
+    return "$(Get-PaceLocation $source)\ProductList.csv"
 }
 
 Function Show-PaceRawCsv
@@ -36,7 +36,7 @@ Function Get-PaceTaggedCsvPath
     [string]$source
 )
 {
-    return "$(Get-PaceLocation $source)\L-classify.csv"
+    return "$(Get-PaceLocation $source)\ProductList-classify.csv"
 }
 
 Function Show-PaceTaggedCsv
@@ -55,14 +55,14 @@ Function Reset-PaceRawCsv
     [string]$source
 )
 {
-    Copy-Item -Path "$(Get-PaceLocation $source)\original-L.csv" -Destination "$(Get-PaceRawCsvPath $source)"
+    Copy-Item -Path "$(Get-PaceLocation $source)\original-ProductList.csv" -Destination "$(Get-PaceRawCsvPath $source)"
 }
 
 Function ConvertTo-PaceRawCSV
 (
     [Parameter(Mandatory=$true)]
     [string]$source,
-    [string]$rawCsv = ".\L.csv"
+    [string]$rawCsv = ".\ProductList.csv"
 )
 {
     $taggedCsv = (Get-PaceTaggedCsvPath $source)
@@ -108,7 +108,7 @@ Function ConvertTo-PaceTaggedCSV
 (
     [Parameter(Mandatory=$true)]
     [string]$source,
-    [string]$taggedCsv = ".\L-classify.csv"
+    [string]$taggedCsv = ".\ProductList-classify.csv"
 )
 {
     $rawCsv = (Get-PaceRawCsvPath $source)
